@@ -56,12 +56,14 @@ cmake_minimum_required(VERSION 2.6)
 project(TLSH)
 
 set(VERSION_MAJOR 4)
-set(VERSION_MINOR 11)
-set(VERSION_PATCH 2)
+set(VERSION_MINOR 12)
+set(VERSION_PATCH 0)
 
 # TLSH uses only half the counting buckets.
 # It can use all the buckets now.
+if(NOT TLSH_BUCKETS_48 AND NOT TLSH_BUCKETS_128 AND NOT TLSH_BUCKETS_256)
 set(TLSH_BUCKETS_128 1)
+endif()
 if(TLSH_BUCKETS_48 EQUAL 1)
   set(TLSH_HASH "min hash")
   add_definitions(-DBUCKETS_48)
@@ -77,7 +79,9 @@ endif()
 
 # TLSH uses 1 byte checksum. The collision rate is 1 in 24.
 # It can use 3 bytes checksum now. That collision rate in 1 in 5800.
+if(NOT TLSH_CHECKSUM_0B AND NOT TLSH_CHECKSUM_1B AND TLSH_CHECKSUM_3B)
 set(TLSH_CHECKSUM_1B 1)
+endif()
 
 if(TLSH_CHECKSUM_0B EQUAL 1)
   set(TLSH_CHECKSUM "no checksum")
