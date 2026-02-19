@@ -107,6 +107,32 @@
   // defined in tlsh.h   #define TLSH_STRING_LEN   30   // 2 + 1 + 12 bytes = 30 hexidecimal chars
 #endif
 
+struct lsh_bin_struct
+{
+	unsigned char checksum[TLSH_CHECKSUM_LEN];  // 1 to 3 bytes
+	unsigned char Lvalue;                       // 1 byte
+	union {
+	#if defined(__SPARC) || defined(_AIX)
+		#pragma pack(1)
+	#endif
+	unsigned char QB;
+	    struct{
+	#if defined(__SPARC) || defined(_AIX)
+		unsigned char Q2ratio : 4;
+		unsigned char Q1ratio : 4;
+	#else
+		unsigned char Q1ratio : 4;
+		unsigned char Q2ratio : 4;
+	#endif
+	    } QR;
+	} Q;                                        // 1 bytes
+	unsigned char tmp_code[CODE_SIZE];          // 32/64 bytes
+};
+int lsh_bin_fromTlshStr(struct lsh_bin_struct *this_lsh_bin, const char* str);
+const char* lsh_bin_hash(const struct lsh_bin_struct *this_lsh_bin, char *buffer, unsigned int bufSize, int showvers);
+int lsh_bin_totalDiff(const struct lsh_bin_struct *this_lsh_bin, const struct lsh_bin_struct *other_lsh_bin, bool len_diff);
+int lsh_bin_BucketValue(const struct lsh_bin_struct *this_lsh_bin, int bucket);
+
 class TlshImpl
 {
 public:
@@ -126,6 +152,7 @@ public:
     int Q2ratio();
     int Checksum(int k);
     int BucketValue(int bucket);
+    void WriteVector(unsigned char *vec);
     int HistogramCount(int bucket);
     int fromTlshStr(const char* str);
     bool isValid() const { return lsh_code_valid; }
@@ -135,26 +162,7 @@ private:
     unsigned char slide_window[SLIDING_WND_SIZE];
     unsigned int data_len;
     
-    struct lsh_bin_struct {
-        unsigned char checksum[TLSH_CHECKSUM_LEN];  // 1 to 3 bytes
-        unsigned char Lvalue;                       // 1 byte
-        union {
-#if defined(__SPARC) || defined(_AIX)
-		#pragma pack(1)
-#endif
-        unsigned char QB;
-            struct{
-#if defined(__SPARC) || defined(_AIX)
-		unsigned char Q2ratio : 4;
-		unsigned char Q1ratio : 4;
-#else
-                unsigned char Q1ratio : 4;
-                unsigned char Q2ratio : 4;
-#endif
-            } QR;
-        } Q;                                        // 1 bytes
-        unsigned char tmp_code[CODE_SIZE];          // 32/64 bytes
-    } lsh_bin;
+    struct lsh_bin_struct lsh_bin;
     
     mutable char *lsh_code;       // allocated when hash() function without buffer is called - 70/134 bytes or 74/138 bytes
     bool lsh_code_valid;  // true iff final() or fromTlshStr complete successfully

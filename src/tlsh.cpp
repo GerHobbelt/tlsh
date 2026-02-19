@@ -220,6 +220,10 @@ int Tlsh::BucketValue(int bucket)
 {
 	return( impl->BucketValue(bucket) );
 }
+void Tlsh::WriteVector(unsigned char *vec )
+{
+	impl->WriteVector(vec);
+}
 
 int Tlsh::HistogramCount(int bucket)
 {

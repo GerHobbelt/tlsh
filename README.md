@@ -296,10 +296,10 @@ TLSH similarity is expressed as a difference score:
 
 # Current Version
 
-**4.13.0**
+**4.13.3**
 <PRE>
-05/02/2026
-	Add CSV files to tlsh_pattern (preparation for a new py-tlsh release)
+06/02/2026
+	Add function WriteVector(unsigned char *vec) to get the byte array of a TLSH
 </PRE>
 
 # Change History

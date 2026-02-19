@@ -233,6 +233,7 @@ typedef struct {
 
 static int Tlsh_init(PyObject *, PyObject *, PyObject *);
 static PyObject * Tlsh_fromTlshStr(tlsh_TlshObject *, PyObject *);
+static PyObject * Tlsh_toByteArray(tlsh_TlshObject *, PyObject *);
 static PyObject * Tlsh_update(tlsh_TlshObject *, PyObject *);
 static PyObject * Tlsh_final(tlsh_TlshObject *);
 static PyObject * Tlsh_hexdigest(tlsh_TlshObject *);
@@ -247,6 +248,9 @@ static PyObject * Tlsh_bucket_value(tlsh_TlshObject *, PyObject *);
 static PyMethodDef Tlsh_methods[] = {
     {"fromTlshStr", (PyCFunction) Tlsh_fromTlshStr, METH_VARARGS,
      "Create a TLSH instance from a hex string."
+    },
+    {"toByteArray", (PyCFunction) Tlsh_toByteArray, METH_VARARGS,
+     "Write to a pre-allocated bytearray (36) vector vales suitable for Pynndescent."
     },
     {"update", (PyCFunction) Tlsh_update, METH_VARARGS,
      "Update the TLSH with the given string."
@@ -412,6 +416,31 @@ Tlsh_fromTlshStr(tlsh_TlshObject *self, PyObject *args)
 #if PY_MAJOR_VERSION >= 3
     Py_XDECREF(asciiStr);
 #endif
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+Tlsh_toByteArray(tlsh_TlshObject *self, PyObject *args)
+{
+    Py_buffer buffer;
+    // Use the 'y*' format to get a writable buffer from a bytes-like object (e.g., bytearray)
+    if (!PyArg_ParseTuple(args, "y*:Tlsh_toByteArray", &buffer)) {
+        return NULL; // Error handling
+    }
+
+    // Access the data pointer and length from the Py_buffer structure
+    unsigned char *buf = (unsigned char *)buffer.buf;
+    Py_ssize_t len = buffer.len;
+    
+    if (len != 36) {
+        PyErr_SetString(PyExc_ValueError, "argument must be a byte array of length 36");
+        return NULL;
+    }
+    self->tlsh.WriteVector(buf);
+
+    // Release the buffer once processing is complete
+    PyBuffer_Release(&buffer);
 
     Py_RETURN_NONE;
 }

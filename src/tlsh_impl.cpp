@@ -789,7 +789,7 @@ void TlshImpl::final(int fc_cons_option)
     this->lsh_code_valid = true;   
 }
 
-int TlshImpl::fromTlshStr(const char* str)
+int lsh_bin_fromTlshStr(struct lsh_bin_struct *this_lsh_bin, const char* str)
 {
 	// Assume that we have 128 Buckets
 	int start = 0;
@@ -817,45 +817,45 @@ int TlshImpl::fromTlshStr(const char* str)
 		// printf("warning xi=%d\n", xi);
 		return 1;
 	}
-
-	this->reset();
-
 	lsh_bin_struct tmp;
 	from_hex( &str[start], INTERNAL_TLSH_STRING_LEN, (unsigned char*)&tmp );
 
 	// Reconstruct checksum, Qrations & lvalue
 	for (int k = 0; k < TLSH_CHECKSUM_LEN; k++) {    
-		this->lsh_bin.checksum[k] = swap_byte(tmp.checksum[k]);
+		this_lsh_bin->checksum[k] = swap_byte(tmp.checksum[k]);
 	}
-	this->lsh_bin.Lvalue = swap_byte( tmp.Lvalue );
-	this->lsh_bin.Q.QB = swap_byte(tmp.Q.QB);
+	this_lsh_bin->Lvalue = swap_byte( tmp.Lvalue );
+	this_lsh_bin->Q.QB = swap_byte(tmp.Q.QB);
 	for( int i=0; i < CODE_SIZE; i++ ){
-		this->lsh_bin.tmp_code[i] = (tmp.tmp_code[CODE_SIZE-1-i]);
+		this_lsh_bin->tmp_code[i] = (tmp.tmp_code[CODE_SIZE-1-i]);
 	}
-	this->lsh_code_valid = true;   
-
 	return 0;
 }
 
-const char* TlshImpl::hash(char *buffer, unsigned int bufSize, int showvers) const
+int TlshImpl::fromTlshStr(const char* str)
+{
+	this->reset();
+	int err = lsh_bin_fromTlshStr( (struct lsh_bin_struct *) &(this->lsh_bin), str);
+	if (! err)
+		this->lsh_code_valid = true;
+	return(err);
+}
+
+const char* lsh_bin_hash(const struct lsh_bin_struct *this_lsh_bin, char *buffer, unsigned int bufSize, int showvers)
 {
     if (bufSize < TLSH_STRING_LEN_REQ + 1) {
-        strncpy(buffer, "", bufSize);
-        return buffer;
-    }
-    if (this->lsh_code_valid == false) {
         strncpy(buffer, "", bufSize);
         return buffer;
     }
 
     lsh_bin_struct tmp;
     for (int k = 0; k < TLSH_CHECKSUM_LEN; k++) {    
-      tmp.checksum[k] = swap_byte( this->lsh_bin.checksum[k] );
+      tmp.checksum[k] = swap_byte( this_lsh_bin->checksum[k] );
     }
-    tmp.Lvalue = swap_byte( this->lsh_bin.Lvalue );
-    tmp.Q.QB = swap_byte( this->lsh_bin.Q.QB );
+    tmp.Lvalue = swap_byte( this_lsh_bin->Lvalue );
+    tmp.Q.QB = swap_byte( this_lsh_bin->Q.QB );
     for( int i=0; i < CODE_SIZE; i++ ){
-        tmp.tmp_code[i] = (this->lsh_bin.tmp_code[CODE_SIZE-1-i]);
+        tmp.tmp_code[i] = (this_lsh_bin->tmp_code[CODE_SIZE-1-i]);
     }
 
 	if (showvers) {
@@ -866,6 +866,15 @@ const char* TlshImpl::hash(char *buffer, unsigned int bufSize, int showvers) con
 		to_hex( (unsigned char*)&tmp, sizeof(tmp), buffer);
 	}
 	return buffer;
+}
+
+const char* TlshImpl::hash(char *buffer, unsigned int bufSize, int showvers) const
+{
+    if (this->lsh_code_valid == false) {
+        strncpy(buffer, "", bufSize);
+        return buffer;
+    }
+    return ( lsh_bin_hash( &(this->lsh_bin), buffer, bufSize, showvers) );
 }
 
 /* to get the hex-encoded hash code */
@@ -943,6 +952,11 @@ int TlshImpl::Checksum(int k)
 }
 int TlshImpl::BucketValue(int bucket)
 {
+	return(lsh_bin_BucketValue( & (this->lsh_bin), bucket));
+}
+
+int lsh_bin_BucketValue(const struct lsh_bin_struct *this_lsh_bin, int bucket)
+{
 int idx;
 int elem;
 unsigned char bv;
@@ -956,7 +970,7 @@ unsigned char bv;
 //		exit(1);
 //	}
 	elem	= bucket % 4;
-	bv = this->lsh_bin.tmp_code[idx];
+	bv = this_lsh_bin->tmp_code[idx];
 	int h1	= bv  / 16;
 	int h2	= bv  % 16;
 	int p1	= h1 / 4;
@@ -974,6 +988,24 @@ unsigned char bv;
 	}
 	return(p4);
 }
+
+void TlshImpl::WriteVector(unsigned char *vec)
+{
+        vec[0] = Checksum(0);
+        vec[1] = Lvalue();
+        vec[2] = Q1ratio();
+        vec[3] = Q2ratio();
+
+        int idx = CODE_SIZE-1;
+	for (int vi=4; vi < 36; vi++) {
+                vec[vi] = this->lsh_bin.tmp_code[idx--];
+        }
+	if (idx != -1) {
+		printf("error in WriteVector: idx=%d\n", idx);
+		exit(1);
+	}
+}
+
 int TlshImpl::HistogramCount(int bucket)
 {
 	if (this->a_bucket == NULL)
@@ -981,12 +1013,12 @@ int TlshImpl::HistogramCount(int bucket)
 	return(this->a_bucket[EFF_BUCKETS - 1 - bucket]);
 }
 
-int TlshImpl::totalDiff(const TlshImpl& other, bool len_diff) const
+int lsh_bin_totalDiff(const struct lsh_bin_struct *this_lsh_bin, const struct lsh_bin_struct *other_lsh_bin, bool len_diff)
 {
     int diff = 0;
     
     if (len_diff) {
-        int ldiff = mod_diff( this->lsh_bin.Lvalue, other.lsh_bin.Lvalue, RANGE_LVALUE);
+        int ldiff = mod_diff( this_lsh_bin->Lvalue, other_lsh_bin->Lvalue, RANGE_LVALUE);
         if ( ldiff == 0 )
             diff = 0;
         else if ( ldiff == 1 )
@@ -995,31 +1027,34 @@ int TlshImpl::totalDiff(const TlshImpl& other, bool len_diff) const
            diff += ldiff*length_mult;
     }
     
-    int q1diff = mod_diff( this->lsh_bin.Q.QR.Q1ratio, other.lsh_bin.Q.QR.Q1ratio, RANGE_QRATIO);
+    int q1diff = mod_diff( this_lsh_bin->Q.QR.Q1ratio, other_lsh_bin->Q.QR.Q1ratio, RANGE_QRATIO);
     if ( q1diff <= 1 )
         diff += q1diff;
     else           
         diff += (q1diff-1)*qratio_mult;
     
-    int q2diff = mod_diff( this->lsh_bin.Q.QR.Q2ratio, other.lsh_bin.Q.QR.Q2ratio, RANGE_QRATIO);
+    int q2diff = mod_diff( this_lsh_bin->Q.QR.Q2ratio, other_lsh_bin->Q.QR.Q2ratio, RANGE_QRATIO);
     if ( q2diff <= 1)
         diff += q2diff;
     else
         diff += (q2diff-1)*qratio_mult;
     
     for (int k = 0; k < TLSH_CHECKSUM_LEN; k++) {    
-      if (this->lsh_bin.checksum[k] != other.lsh_bin.checksum[k] ) {
+      if (this_lsh_bin->checksum[k] != other_lsh_bin->checksum[k] ) {
         diff ++;
         break;
       }
     }
     
-    diff += h_distance( CODE_SIZE, this->lsh_bin.tmp_code, other.lsh_bin.tmp_code );
+    diff += h_distance( CODE_SIZE, this_lsh_bin->tmp_code, other_lsh_bin->tmp_code );
 
     return (diff);
 }
 
-
+int TlshImpl::totalDiff(const TlshImpl& other, bool len_diff) const
+{
+	return (lsh_bin_totalDiff( &(this->lsh_bin), &(other.lsh_bin), len_diff ));
+}
 
 #define SWAP_UINT(x,y) do {\
     unsigned int int_tmp = (x);  \
