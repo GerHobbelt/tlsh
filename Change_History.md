@@ -772,3 +772,16 @@ TIME	ms= 21.00	per million iterations
 06/02/2026
 	Add function WriteVector(unsigned char *vec) to get the byte array of a TLSH
 </PRE>
+
+**4.13.4**
+<PRE>
+17/02/2026
+	Resolve #162 Reverse out T1 change made in 4.13.1
+</PRE>
+
+**5.0.0**
+<PRE>
+17/02/2026
+	Change default behaviour to output T1 at the start of the digest
+	A T1 digest requires that the number of buckets = 128 and the checksum is 1 byte
+</PRE>
